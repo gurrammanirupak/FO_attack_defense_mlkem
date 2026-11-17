@@ -1,0 +1,31 @@
+Legend: [naive-scalar][inline-CT-loop][opaque-verify-calls]  S=survives x=stripped
+  compiler    -O0     -O1     -O2     -O3     -Os    
+  arm-gcc     -O0=SSS -O1=xSS -O2=xSS -O3=xSS -Os=xxS
+  arm-clang   -O0=SSS -O1=xSS -O2=xSS -O3=xSS -Os=xSS
+  host-gcc    -O0=SSS -O1=xSS -O2=xSS -O3=xSS -Os=xxS
+  host-clang  -O0=SSS -O1=xSS -O2=xSS -O3=xSS -Os=xSS
+
+=== arm-gcc -O3 disassembly: naive-scalar (folded) vs verify-calls (kept) ===
+00000000 <accept_naive_scalar>:
+   0:	subs	r0, r0, r1
+   2:	it	ne
+   4:	movne	r0, #1
+   6:	bx	lr
+
+00000008 <accept_naive_inline>:
+0000015c <accept_calls>:
+ 15c:	push	{r3, r4, r5, r6, r7, lr}
+ 15e:	mov	r5, r0
+ 160:	mov	r6, r1
+ 162:	mov	r7, r2
+ 164:	bl	0 <ct_verify>
+ 168:	mov	r2, r7
+ 16a:	mov	r4, r0
+ 16c:	mov	r1, r6
+ 16e:	mov	r0, r5
+ 170:	bl	0 <ct_verify>
+ 174:	cmp	r4, r0
+ 176:	beq.n	17c <accept_calls+0x20>
+ 178:	bl	0 <fo_trap>
+ 17c:	mov	r0, r4
+ 17e:	pop	{r3, r4, r5, r6, r7, pc}
