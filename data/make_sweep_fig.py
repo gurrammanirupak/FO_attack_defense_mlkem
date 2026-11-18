@@ -19,71 +19,73 @@ so you can tell it the right column names.
 import argparse
 import csv
 import sys
+from collections import defaultdict
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-UNDEF = "sweep_undefended.csv"
-DEF = "sweep_defended.csv"
 
-# Candidate header names (lowercased) for each quantity we plot.
-OFFSET_KEYS = ("offset", "ext_offset", "glitch_offset", "x", "cycle")
-LEAK_KEYS = ("leak", "leaks", "leak_count", "n_leak")
-
-
-def _pick(header, candidates):
-    low = {h.lower().strip(): h for h in header}
-    for c in candidates:
-        if c in low:
-            return low[c]
-    return None
+def classify(status):
+    s = status.strip().lower()
+    if "leak" in s or "target" in s:
+        return "leak"
+    if "fault" in s or "trap" in s or "0xee" in s:
+        return "fault"
+    if "normal" in s or "rej" in s:
+        return "normal"
+    return "other"
 
 
 def load(path):
-    with open(path, newline="") as f:
-        rows = list(csv.DictReader(f))
-    if not rows:
-        sys.exit(f"{path}: no data rows")
-    header = rows[0].keys()
-    off = _pick(header, OFFSET_KEYS)
-    leak = _pick(header, LEAK_KEYS)
-    if off is None or leak is None:
-        sys.exit(
-            f"{path}: could not find offset/leak columns.\n"
-            f"  header seen: {list(header)}\n"
-            f"  edit OFFSET_KEYS / LEAK_KEYS at the top of this script."
-        )
-    xs = [float(r[off]) for r in rows]
-    ys = [float(r[leak]) for r in rows]
-    return xs, ys
+    try:
+        with open(path, newline="") as f:
+            rows = list(csv.DictReader(f))
+    except FileNotFoundError:
+        sys.exit(f"{path}: not found")
+    if not rows or "ExtOffset" not in rows[0] or "Status" not in rows[0]:
+        sys.exit(f"{path}: expected columns ExtOffset, Status. Saw {list(rows[0]) if rows else 'nothing'}")
+    # leaks[offset] = number of leaks at that offset
+    leaks = defaultdict(int)
+    offsets = set()
+    for r in rows:
+        off = int(float(r["ExtOffset"]))
+        offsets.add(off)
+        if classify(r["Status"]) == "leak":
+            leaks[off] += 1
+    return offsets, leaks
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--show", action="store_true")
+    ap.add_argument("--undef", default="sweep_undefended.csv")
+    ap.add_argument("--def", dest="defended", default="sweep_defended.csv")
+    ap.add_argument("--out", default="fig_sweep")
     args = ap.parse_args()
 
-    ux, uy = load(UNDEF)
-    dx, dy = load(DEF)
+    u_off, u_leak = load(args.undef)
+    d_off, d_leak = load(args.defended)
 
-    fig, ax = plt.subplots(figsize=(6.0, 3.2))
-    ax.plot(ux, uy, "o-", color="#c0392b", label="Undefended", linewidth=1.5,
-            markersize=4)
-    ax.plot(dx, dy, "s-", color="#27ae60", label="FODefensePass", linewidth=1.5,
-            markersize=4)
+    offs = sorted(u_off | d_off)
+    uy = [u_leak.get(o, 0) for o in offs]
+    dy = [d_leak.get(o, 0) for o in offs]
+
+    print(f"Undefended: {sum(uy)} leaks across {len(u_off)} offsets")
+    print(f"Defended:   {sum(dy)} leaks across {len(d_off)} offsets")
+
+    fig, ax = plt.subplots(figsize=(6.4, 2.6))
+    ax.bar(offs, uy, width=0.9, color="#c0392b", label="Undefended")
+    ax.bar(offs, dy, width=0.9, color="#27ae60", label="FODefensePass")
     ax.set_xlabel("Glitch ext_offset (cycles)")
-    ax.set_ylabel("Key leaks per 100 shots")
-    ax.set_ylim(bottom=-2)
-    ax.grid(True, alpha=0.3)
-    ax.legend(frameon=False)
+    ax.set_ylabel("Leaks per offset")
+    ax.set_ylim(bottom=0)
+    ax.grid(True, axis="y", alpha=0.3)
+    ax.legend(frameon=False, loc="upper right")
     fig.tight_layout()
 
-    fig.savefig("fig_sweep.pdf")
-    fig.savefig("fig_sweep.png", dpi=200)
-    print("Wrote fig_sweep.pdf and fig_sweep.png")
-    if args.show:
-        plt.show()
+    fig.savefig(args.out + ".pdf")
+    fig.savefig(args.out + ".png", dpi=200)
+    print(f"Wrote {args.out}.pdf and {args.out}.png")
 
 
 if __name__ == "__main__":
