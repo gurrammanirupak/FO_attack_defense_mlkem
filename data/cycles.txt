@@ -1,0 +1,6 @@
+# ML-KEM-768 decapsulation cycle counts on CW308_STM32F3 (Cortex-M4, soft-float)
+# Measured via DWT CYCCNT, averaged over repeated 't' command invocations.
+# Columns: build  cycles
+undefended  1711484
+defended    1713739
+# delta: +2255 cycles (+0.13%)
