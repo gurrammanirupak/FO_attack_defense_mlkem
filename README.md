@@ -1,7 +1,6 @@
 # The Compiler's Blind Spot — Artifact
 
-Artifact for the DAC 2027 submission on instruction-skip fault injection
-against the ML-KEM-768 (Kyber) Fujisaki–Okamoto (FO) check, and
+Artifact  on instruction-skip fault injection against the ML-KEM-768 (Kyber) Fujisaki–Okamoto (FO) check, and
 **FODefensePass**, an automated LLVM countermeasure.
 
 This repository lets a reader reproduce three claims from the paper:
